@@ -681,7 +681,7 @@ void cmdPositionSetpoint(
       } else {
         msg.header.stamp = ros::Time(time_in_ms / 1000.0);
       }
-      msg.header.frame_id = m_tf_prefix + "/base_link";
+      msg.header.frame_id = "base";
 
       msg.pose.position.x = data->x;
       msg.pose.position.y = data->y;
