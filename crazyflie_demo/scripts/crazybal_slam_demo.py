@@ -21,11 +21,11 @@ import matplotlib.mlab as mlab
 
 cf_pose = 0
 time_of_fist_slam_pose = 0 
-numberOfPointsForScaleCalibration = 100
+numberOfPointsForScaleCalibration = 150
 sendExternalPosition = False
 scaleSet = False
 cf_altitude = 0
-takeoff_height = 1
+takeoff_height = 0.75
 pose_at_init = 0
 startScaleCalibration = False
 norms_cf = []
@@ -114,7 +114,8 @@ def new_slam_pose(slam_pose):
             l_cf = ax.plot(bins, y_cf, 'b--', linewidth=2)
             l_slam = ax.plot(bins, y_slam, 'r--', linewidth=2)
             plt.legend(loc='upper right')          
-            plt.show() # remove and turn into service. -- add calibration service?
+            #plt.show() # remove and turn into service. -- add calibration service?
+            plt.savefig('last_calibration_log.png')
             ################
             
             # good calibration
@@ -159,8 +160,8 @@ def new_slam_pose(slam_pose):
         
         temp_position_cf, _   =  tf_listener.lookupTransform("/base", "/cf", rospy.Time())
         temp_position_slam, _ =  tf_listener.lookupTransform("/base", "/scaled_camera_link", rospy.Time())
-        print "cf position:   " + str(temp_position_cf)
-        print "slam position: " + str(temp_position_slam) + "\n"
+        #print "cf position:   " + str(temp_position_cf)
+        #print "slam position: " + str(temp_position_slam) + "\n"
         #print tf.transformations.vector_norm([x-y for (x,y) in zip(temp_position_cf,temp_position_slam)])    
         if sendExternalPosition:                        
             cf_external_pos_msg = PointStamped()
@@ -198,7 +199,7 @@ if __name__ == '__main__':
     
     rospy.init_node('crazybal_slam_demo')
     
-    rospy.loginfo("started commander")
+    rospy.loginfo("started commander in" + os.getcwd())
     cf = crazyflie.Crazyflie("/crazyflie", "/cf")
     rospy.loginfo("started cf")
     
@@ -245,14 +246,14 @@ if __name__ == '__main__':
     # takeoff
 
     rospy.loginfo("takeoff begin...")  
-    #cf.takeoff(takeoff_height, duration = 3)
+    cf.takeoff(takeoff_height, duration = 3)
     rospy.sleep(5.)
     # kill running slam node and start it again.
     DEVNULL = open(os.devnull, 'wb')
     child = subprocess.Popen(["rosnode","kill","/crazyflie/orb_slam2_mono"],stdout=DEVNULL ,stderr=DEVNULL )
     child = subprocess.Popen(["roslaunch","orb_slam2_ros","orb_slam2_crazybal_mono.launch"],stdout=DEVNULL )
     
-    rospy.sleep(5.)
+    rospy.sleep(20.)
     
     rospy.loginfo("takeoff complete!")        
 
@@ -262,7 +263,7 @@ if __name__ == '__main__':
     # start scale calibration
     startScaleCalibration = True
     rospy.loginfo("starting scale calibration...")      
-    #cf.goTo(goal = [0.0, 0.0, takeoff_height + 0.5], yaw=0, duration = 3.0, relative = True)
+    #cf.goTo(goal = [0.0, 0.0, 0], yaw=0, duration = 3.0, relative = True)
     
     # wait for scale set
     #rospy.spin() # hang here...
@@ -283,6 +284,7 @@ if __name__ == '__main__':
     # sending SLAM position to cf
     sendExternalPosition = True
     rospy.sleep(1.)
+    input = raw_input("press enter to end flight")
     # fly to point
     #cf.goTo(goal = [1, 0.0, 0.0], yaw=0, duration = 5.0, relative = True)
     #time.sleep(10.0)
@@ -299,4 +301,4 @@ if __name__ == '__main__':
     
     cf.stop()
     cf.setParam("commander/enHighLevel", 0)
-    rospy.spin()
+    #rospy.spin()
