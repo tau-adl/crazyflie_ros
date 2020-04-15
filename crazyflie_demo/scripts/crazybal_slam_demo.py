@@ -154,26 +154,28 @@ def new_slam_pose(slam_pose):
                 t,
                 "map",
                  "cf0")
-        
-        tf_listener.waitForTransform("/base", "/cf", rospy.Time.now() - rospy.Duration(0.03),rospy.Duration(1))
-        tf_listener.waitForTransform("/base", "/scaled_camera_link", rospy.Time.now() - rospy.Duration(0.03),rospy.Duration(1))        
-        
-        temp_position_cf, _   =  tf_listener.lookupTransform("/base", "/cf", rospy.Time())
-        temp_position_slam, _ =  tf_listener.lookupTransform("/base", "/scaled_camera_link", rospy.Time())
-        #print "cf position:   " + str(temp_position_cf)
-        #print "slam position: " + str(temp_position_slam) + "\n"
-        #print tf.transformations.vector_norm([x-y for (x,y) in zip(temp_position_cf,temp_position_slam)])    
-        if sendExternalPosition:                        
-            cf_external_pos_msg = PointStamped()
-            cf_external_pos_msg.header.seq = 0
-            cf_external_pos_msg.header.stamp = rospy.Time.now()
-            cf_external_pos_msg.header.frame_id = "base"
-            cf_external_pos_msg.header.stamp = slam_pose.header.stamp
-            cf_external_pos_msg.header.seq += 1
-            cf_external_pos_msg.point.x = temp_position_slam[0]
-            cf_external_pos_msg.point.y = temp_position_slam[1]
-            cf_external_pos_msg.point.z = temp_position_slam[2]
-            cf_external_pos_publisher.publish(cf_external_pos_msg)
+	try:
+		tf_listener.waitForTransform("/base", "/cf", rospy.Time.now() - rospy.Duration(0.03),rospy.Duration(1))
+		tf_listener.waitForTransform("/base", "/scaled_camera_link", rospy.Time.now() - rospy.Duration(0.03),rospy.Duration(1))        
+		
+		temp_position_cf, _   =  tf_listener.lookupTransform("/base", "/cf", rospy.Time())
+		temp_position_slam, _ =  tf_listener.lookupTransform("/base", "/scaled_camera_link", rospy.Time())
+		#print "cf position:   " + str(temp_position_cf)
+		#print "slam position: " + str(temp_position_slam) + "\n"
+		#print tf.transformations.vector_norm([x-y for (x,y) in zip(temp_position_cf,temp_position_slam)])    
+		if sendExternalPosition:                        
+		    cf_external_pos_msg = PointStamped()
+		    cf_external_pos_msg.header.seq = 0
+		    cf_external_pos_msg.header.stamp = rospy.Time.now()
+		    cf_external_pos_msg.header.frame_id = "base"
+		    cf_external_pos_msg.header.stamp = slam_pose.header.stamp
+		    cf_external_pos_msg.header.seq += 1
+		    cf_external_pos_msg.point.x = temp_position_slam[0]
+		    cf_external_pos_msg.point.y = temp_position_slam[1]
+		    cf_external_pos_msg.point.z = temp_position_slam[2]
+		    cf_external_pos_publisher.publish(cf_external_pos_msg)
+	except:
+		rospy.logerr("no TF data available - skipping frame")
     return
         
 
