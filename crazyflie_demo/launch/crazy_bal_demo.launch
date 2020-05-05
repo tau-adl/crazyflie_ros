@@ -4,7 +4,7 @@
 
   <arg name="slam_pose_name" default="orb_slam2_mono/pose" /> <!-- change to slam output pose -->
   <arg name="crazyflie_ns" default="crazyflie" />
-
+  <arg name="orb_slam_launch_file" default="$(find orb_slam2_ros)/ros/launch/orb_slam2_crazybal_mono.launch" />
 
   <include file="$(find crazyflie_driver)/launch/crazyflie_server.launch">
   </include>
@@ -26,6 +26,7 @@
  <node name="commander" pkg="crazyflie_demo" type="crazybal_slam_demo.py" output="screen">
       <param name="orbslam_pose_topic" value="/$(arg crazyflie_ns)/$(arg slam_pose_name)" />
       <param name="crazy_flie_pose_topic" value="/$(arg crazyflie_ns)/pose" />
+      <param name="orb_slam_launch" value="$(arg orb_slam_launch_file)" /> 
   </node>
 
     <!-- <node pkg="tf" type="static_transform_publisher" name="baselink_broadcaster" args="0 0 0 0 0 0 1 $(arg frame) /crazyflie/base_link 100" /> --> <!-- add transform between camera and cf axis-->

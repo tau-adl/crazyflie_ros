@@ -8,8 +8,9 @@ from std_msgs.msg import Float32
 import tf
 from tf import TransformListener
 from math import sqrt
-import subprocess
+#import subprocess
 import os
+import roslaunch
 
 ### FOR PLOT ##
 import numpy
@@ -21,7 +22,7 @@ import matplotlib.mlab as mlab
 
 cf_pose = 0
 time_of_fist_slam_pose = 0 
-numberOfPointsForScaleCalibration = 150
+numberOfPointsForScaleCalibration = 75
 sendExternalPosition = False
 scaleSet = False
 cf_altitude = 0
@@ -53,6 +54,7 @@ def new_slam_pose(slam_pose):
     global scale_mean_publisher
     global scale_stdev_publisher
     global cf_external_pos_msg
+    global gotCFPose_beforeSLAM
     
     if pose_at_init is not 0 and not scaleSet:
         t = rospy.Time.now()
@@ -79,7 +81,9 @@ def new_slam_pose(slam_pose):
             pose_at_init = cf_pose
         else:
             # crash here?
-            rospy.logerr("need CF pose before SLAM is initiallized!")
+            rospy.logerr("need CF pose before SLAM is initiallized! - requires restart!")
+            gotCFPose_beforeSLAM = True
+            rospy.spin()
                         
         firstSLAMPose = False
         
@@ -103,20 +107,21 @@ def new_slam_pose(slam_pose):
             (mu_slam, sigma_slam) = norm.fit(norms_slam)
             (mu_cf, sigma_cf) = norm.fit(norms_cf)
             
-            #PLOT###########
+            #PLOT CALIBRATION###########
             
-            num_bins = 100
-            fig, ax = plt.subplots()            
+            #num_bins = 100
+            #fig, ax = plt.subplots()            
             # the histogram of the data
-            n, bins, patches = ax.hist([norms_cf,norms_slam], num_bins, label=['cf', 'slam'], normed=1)  
-            y_cf = mlab.normpdf( bins, mu_cf, sigma_cf)
-            y_slam = mlab.normpdf( bins, mu_slam, sigma_slam)
-            l_cf = ax.plot(bins, y_cf, 'b--', linewidth=2)
-            l_slam = ax.plot(bins, y_slam, 'r--', linewidth=2)
-            plt.legend(loc='upper right')          
+            #n, bins, patches = ax.hist([norms_cf,norms_slam], num_bins, label=['cf', 'slam'], normed=1)  
+            #y_cf = mlab.normpdf( bins, mu_cf, sigma_cf)
+            #y_slam = mlab.normpdf( bins, mu_slam, sigma_slam)
+            #l_cf = ax.plot(bins, y_cf, 'b--', linewidth=2)
+            #l_slam = ax.plot(bins, y_slam, 'r--', linewidth=2)
+            #plt.legend(loc='upper right')          
             #plt.show() # remove and turn into service. -- add calibration service?
-            plt.savefig('last_calibration_log.png')
-            ################
+            #plt.savefig('last_calibration_log.png')
+
+            ############################
             
             # good calibration
             qf_cf = sigma_cf / mu_cf
@@ -198,9 +203,9 @@ if __name__ == '__main__':
     
     firstSLAMPose = True
     gotCFPose = False
-    
+    gotCFPose_beforeSLAM = False
+
     rospy.init_node('crazybal_slam_demo')
-    
     rospy.loginfo("started commander in" + os.getcwd())
     cf = crazyflie.Crazyflie("/crazyflie", "/cf")
     rospy.loginfo("started cf")
@@ -250,14 +255,27 @@ if __name__ == '__main__':
     rospy.loginfo("takeoff begin...")  
     cf.takeoff(takeoff_height, duration = 3)
     rospy.sleep(5.)
+    slam_launch_filename = rospy.get_param("~orb_slam_launch", "orb_slam2_crazybal_mono.launch")
+    uuid = roslaunch.rlutil.get_or_generate_uuid(None, False)
+    roslaunch.configure_logging(uuid)
+    slam_launch = roslaunch.parent.ROSLaunchParent(uuid, [slam_launch_filename])
+    slam_launch.start()
     # kill running slam node and start it again.
-    DEVNULL = open(os.devnull, 'wb')
-    child = subprocess.Popen(["rosnode","kill","/crazyflie/orb_slam2_mono"],stdout=DEVNULL ,stderr=DEVNULL )
-    child = subprocess.Popen(["roslaunch","orb_slam2_ros","orb_slam2_crazybal_mono.launch"],stdout=DEVNULL )
+    #DEVNULL = open(os.devnull, 'wb')
+    #child = subprocess.Popen(["rosnode","kill","/crazyflie/orb_slam2_mono"],stdout=DEVNULL ,stderr=DEVNULL )
+    #child = subprocess.Popen(["roslaunch","orb_slam2_ros","orb_slam2_crazybal_mono.launch"],stdout=DEVNULL )
     
+
+    # allow for takeoff wait and for slam init
     rospy.sleep(20.)
     
-    rospy.loginfo("takeoff complete!")        
+    # wait for slam to init well
+    if gotCFPose_beforeSLAM or firstSLAMPose:
+        rospy.logerr("slam init failed or bad timing...aborting")
+        slam_launch.shutdown()
+        rospy.spin()
+    
+    rospy.loginfo("takeoff wait complete!")        
 
     # wait untill we have slam for 2 seconds straight...
     #tf_listener.waitForTransform("/cf0", "/base", rospy.Time.now() ,rospy.Duration(10))
@@ -278,29 +296,32 @@ if __name__ == '__main__':
         rospy.sleep(2.)
         cf.stop()
         cf.setParam("commander/enHighLevel", 0)
-        rospy.spin()
+        #rospy.spin()
         #quit() # crash here?
+        slam_launch.shutdown()
     else:
         rospy.loginfo("calibration succeeded!")
     
-    # sending SLAM position to cf
-    sendExternalPosition = True
-    rospy.sleep(1.)
-    input = raw_input("press enter to end flight")
-    # fly to point
-    #cf.goTo(goal = [1, 0.0, 0.0], yaw=0, duration = 5.0, relative = True)
-    #time.sleep(10.0)
-    #cf.goTo(goal = [0, 1, 0.0], yaw=0, duration = 5.0, relative = True)
-    #time.sleep(10.0)
-    #cf.goTo(goal = [-1, 0.0, 0.0], yaw=0, duration = 5.0, relative = True)
-    #time.sleep(10.0)
-    #cf.goTo(goal = [0, -1, 0.0], yaw=0, duration = 5.0, relative = True)
-    #time.sleep(10.0)
+        # sending SLAM position to cf
+        sendExternalPosition = True
+        rospy.sleep(1.)
+        input = raw_input("press enter to end flight")
+        # fly to point
+        #cf.goTo(goal = [1, 0.0, 0.0], yaw=0, duration = 5.0, relative = True)
+        #time.sleep(10.0)
+        #cf.goTo(goal = [0, 1, 0.0], yaw=0, duration = 5.0, relative = True)
+        #time.sleep(10.0)
+        #cf.goTo(goal = [-1, 0.0, 0.0], yaw=0, duration = 5.0, relative = True)
+        #time.sleep(10.0)
+        #cf.goTo(goal = [0, -1, 0.0], yaw=0, duration = 5.0, relative = True)
+        #time.sleep(10.0)
     
-    # land
-    #cf.land(targetHeight = 0.0, duration = 2.0)
-    #input("Press Enter to stop test")
+        # land
+        #cf.land(targetHeight = 0.0, duration = 2.0)
+        #input("Press Enter to stop test")
     
-    cf.stop()
-    cf.setParam("commander/enHighLevel", 0)
-    #rospy.spin()
+        cf.stop()
+        cf.setParam("commander/enHighLevel", 0)
+        slam_launch.shutdown()
+        #rospy.spin()
+	
