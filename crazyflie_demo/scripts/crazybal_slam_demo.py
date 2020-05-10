@@ -273,6 +273,8 @@ if __name__ == '__main__':
     if gotCFPose_beforeSLAM or firstSLAMPose:
         rospy.logerr("slam init failed or bad timing...aborting")
         slam_launch.shutdown()
+        cf.stop()
+        cf.setParam("commander/enHighLevel", 0)
         rospy.spin()
     
     rospy.loginfo("takeoff wait complete!")        
@@ -305,11 +307,16 @@ if __name__ == '__main__':
         # sending SLAM position to cf
         sendExternalPosition = True
         rospy.sleep(1.)
+        cf.goTo(goal = [1, 0, 0.0], yaw=0, duration = 10.0, relative = True)
+        time.sleep(12)
+        cf.goTo(goal = [0, -1, 0.0], yaw=0, duration = 10.0, relative = True)
+        time.sleep(12)
+	cf.goTo(goal = [0, 0, 0.75], yaw=0, duration = 10.0, relative = False)
+	time.sleep(12)
         input = raw_input("press enter to end flight")
+        
         # fly to point
-        #cf.goTo(goal = [1, 0.0, 0.0], yaw=0, duration = 5.0, relative = True)
-        #time.sleep(10.0)
-        #cf.goTo(goal = [0, 1, 0.0], yaw=0, duration = 5.0, relative = True)
+        
         #time.sleep(10.0)
         #cf.goTo(goal = [-1, 0.0, 0.0], yaw=0, duration = 5.0, relative = True)
         #time.sleep(10.0)
